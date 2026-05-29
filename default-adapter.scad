@@ -6,7 +6,7 @@
 // Piece dimensions
 width       = 68;
 depth       = 55;
-height      = 100;
+height      = 120;
 
 // Door-side tenons (protrude toward door in -Y direction)
 tenon_w         = 3.3;
@@ -19,7 +19,8 @@ tenon_spacing   = 26;
 mortise_w       = 3.5;
 mortise_d       = 30;        // Overall Y extent of wall-side engagement zone
 ear_d           = 0;         // Y-depth of exterior ear blocks (shorter = less reach from back face)
-inner_tenon_d   = 32;        // Put it to 32mm when need to clear tenon from window
+inner_tenon_d   = 5;        // Put it to 38mm when need to clear tenon from window
+                             // Use 5 when nothing in the channel
 mortise_inner_d = 21;        // Mortise slot depth — matches tenon length by default
 mortise_end_h   = 5;         // Height of exterior ears at top and bottom
 mortise_spacing = 26;
@@ -34,7 +35,7 @@ tongue_w_top  = 12;
 tongue_w_bot  = 8;
 
 // Tolerance for all fits (PETG)
-tolerance = 0.1;
+tolerance = 0.15;
 
 // Derived positions
 tenon_left_x  = width / 2 - tenon_spacing / 2;
@@ -54,11 +55,13 @@ inner_wall_d = depth - 5; // Depth of inner walls between mortise slots and chan
 
 // Portasplit hose slot (27mm × 60mm flat hose, Midea Portasplit)
 // Through-hole in X (side face to side face); open at window face (Y=0) for non-detachable hose.
-hose_hole      = false;          // Set true to cut hose slot in this block
-hose_w         = 30;            // Hose thickness → slot depth from window face (Y direction)
+hose_hole      = true;          // Set true to cut hose slot in this block
+hose_w         = 31;            // Hose thickness → slot depth from window face (Y direction)
 hose_h         = 66;            // Hose face → slot height (Z direction)
 hose_z         = height / 2;    // Z center of hose slot (default: piece center)
 hose_tolerance = 0.1;           // Clearance per side
+hose_corner_r  = 2.8;             // Fillet on back-wall corners inside the slot (window face stays sharp)
+outer_fillet_r = 20;             // Fillet around hole perimeter at each side face (cable exits here)
 
 // ============================================================
 // COMPONENT MODULES
@@ -105,13 +108,58 @@ module dovetail_tongue(tongue_center_x) {
         }
 }
 
-// Portasplit hose slot: open at window face (Y=0), 27mm deep into piece (Y), 60mm tall (Z)
-// Through-hole in X — hose slides in from window face, passes side to side
+// Portasplit hose slot: open at window face (Y=0), through-hole in X
+// Back-wall (Y=sd) corners are rounded internally; window face (Y=0) stays sharp
 module hose_slot() {
-    sd = hose_w + hose_tolerance;        // Y depth from window face: 27.1mm
-    sh = hose_h + 2 * hose_tolerance;   // Z: 60mm + clearance
-    translate([-1, -1, hose_z - sh/2])
-        cube([width + 2, sd + 1, sh]);
+    sd = hose_w + hose_tolerance;
+    sh = hose_h + 2 * hose_tolerance;
+    r  = hose_corner_r;
+    // Front cylinders at Y=-1 (outside body) → window face remains a sharp rectangle
+    // Back cylinders at Y=sd → back-wall corners are rounded with radius r
+    hull() {
+        for (zoff = [r, sh - r])
+            for (yoff = [-1, sd])
+                translate([-1, yoff, hose_z - sh/2 + zoff])
+                    rotate([0, 90, 0])
+                        cylinder(r=r, h=width+2, $fn=32);
+    }
+}
+
+// Outer perimeter fillet: rounded lip on each X face.
+// Uses the arc centered at (r, zt+r) / (r, zb-r): xi = r(1-cosθ), ri = r(1-sinθ).
+// This arc has a HORIZONTAL tangent at the face (xi=0, ri=r) — the surface starts flush
+// with the face and curves smoothly inward, creating a visible rounded lip on the outside
+// of the slot edge rather than a funnel hole going into the piece.
+module hose_outer_fillet() {
+    sd  = hose_w + hose_tolerance;
+    sh  = hose_h + 2 * hose_tolerance;
+    r   = outer_fillet_r;
+    zb  = hose_z - sh / 2;
+    zt  = hose_z + sh / 2;
+    N   = 16;
+    eps = 0.01;
+
+    // Left face (x=0)
+    hull() {
+        for (i = [0:N-1])
+            for (yc = [0, sd])
+                for (zc = [zb, zt])
+                    translate([r * (1 - cos(90 * i / N)), yc, zc])
+                        rotate([0, 90, 0])
+                            cylinder(r = r * (1 - sin(90 * i / N)), h = eps, $fn = 16);
+        translate([r, 0, zb]) cylinder([eps, sd, sh]);
+    }
+
+    // Right face (x=width)
+    hull() {
+        for (i = [0:N-1])
+            for (yc = [0, sd])
+                for (zc = [zb, zt])
+                    translate([width - r * (1 - cos(90 * i / N)), yc, zc])
+                        rotate([0, 90, 0])
+                            cylinder(r = r * (1 - sin(90 * i / N)), h = eps, $fn = 16);
+        translate([width - r, 0, zb]) cylinder([eps, sd, sh]);
+    }
 }
 
 // Dovetail groove on bottom face: complement of tongue, with tolerance applied
@@ -137,7 +185,7 @@ module portasplit_cover() {
         union() {
             // Main body
             cube([width, depth, height]);
-            
+
             // Door-side tenons
             door_tenon(tenon_left_x);
             door_tenon(tenon_right_x);
@@ -156,7 +204,7 @@ module portasplit_cover() {
         }
 
         // Subtractive features (cuts)
-        
+
         // Inner walls: cut from wall side inward, leaving inner_wall_d depth from door side
         translate([mortise_left_x + mortise_w / 2, inner_wall_d, -1])
             cube([mortise_wall_thickness, depth - inner_wall_d + 1, height + 2]);
@@ -181,6 +229,7 @@ module portasplit_cover() {
         // Portasplit hose slot (only when enabled)
         if (hose_hole) {
             hose_slot();
+            hose_outer_fillet();
             // Remove door tenons in the hose slot Z range
             translate([-tenon_d - 1, -tenon_d - 1, hose_z - (hose_h + 2*hose_tolerance)/2])
                 cube([width + 2*tenon_d + 2, tenon_d + 1, hose_h + 2*hose_tolerance]);
