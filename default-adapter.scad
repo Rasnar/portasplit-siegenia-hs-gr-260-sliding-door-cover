@@ -6,7 +6,7 @@
 // Piece dimensions
 width       = 68;
 depth       = 55;
-height      = 120;
+height      = 100;
 
 // Door-side tenons (protrude toward door in -Y direction)
 tenon_w         = 3.3;
@@ -19,7 +19,7 @@ tenon_spacing   = 26;
 mortise_w       = 3.5;
 mortise_d       = 30;        // Overall Y extent of wall-side engagement zone
 ear_d           = 0;         // Y-depth of exterior ear blocks (shorter = less reach from back face)
-inner_tenon_d   = 5;        // Put it to 38mm when need to clear tenon from window
+inner_tenon_d   = 38;        // Put it to 38mm when need to clear tenon from window
                              // Use 5 when nothing in the channel
 mortise_inner_d = 21;        // Mortise slot depth — matches tenon length by default
 mortise_end_h   = 5;         // Height of exterior ears at top and bottom
@@ -55,7 +55,7 @@ inner_wall_d = depth - 5; // Depth of inner walls between mortise slots and chan
 
 // Portasplit hose slot (27mm × 60mm flat hose, Midea Portasplit)
 // Through-hole in X (side face to side face); open at window face (Y=0) for non-detachable hose.
-hose_hole      = true;          // Set true to cut hose slot in this block
+hose_hole      = false;          // Set true to cut hose slot in this block
 hose_w         = 31;            // Hose thickness → slot depth from window face (Y direction)
 hose_h         = 66;            // Hose face → slot height (Z direction)
 hose_z         = height / 2;    // Z center of hose slot (default: piece center)
