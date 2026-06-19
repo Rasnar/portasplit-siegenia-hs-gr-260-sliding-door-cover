@@ -1,0 +1,16 @@
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# OpenSCAD temp and cache
+*.bak
+*.cache
+*.log
+*.svg
+*.png
+
+# Editor files
+*.swp
+*.swo
+*~
